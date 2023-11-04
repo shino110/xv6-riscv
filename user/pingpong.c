@@ -1,10 +1,12 @@
 // pingpong.c for xv6 (assignment #1 for CSC.T371)
-// name: <<<your name>>>
-// id: <<<your student id>>>
+// name: Shino Ito
+// id: 21B30066
 
 #include "kernel/types.h"
 #include "kernel/stat.h"
 #include "user/user.h"
+#include <stdbool.h>
+#include <stddef.h>
 
 // <<<remove this comment and fill your code here if needed>>>
 
@@ -20,7 +22,44 @@ int main(int argc, char *argv[]) {
     // tick value before starting rounds
     int start_tick = uptime();
     
-    // <<<remove this comment and fill your code here>>>
+    int p[2];
+    pipe(p);
+
+    //Peterson Algorithm
+    volatile bool wantp = false, wantq = false;
+    volatile int last = 0;
+    int pid = fork();
+    if (pid == 0){
+        for (int i = 0; i < n; i++) {
+            wantq = true;
+            last = 1;
+            while (wantp && last == 1);
+            unsigned char *in = NULL;
+            read(p[0], in, 1);
+            *in += 1;
+            write(p[1], in, 1);
+            wantq = false;
+        }
+        exit(0);
+    }else {
+        char *in;
+        in = "0";
+        write(p[1], in, 1);
+        wantp = false;
+        for (int i = 1; i < n; i++) {
+            wantp = true;
+            last = 0;
+            while(wantq && last == 0);
+            unsigned char *in = NULL;
+            read(p[0], in, 1);
+            *in += 1;
+            write(p[1], in, 1);
+            wantp = false;
+        }
+        int *status = NULL;
+        wait(status);
+    }
+
 
     // tick value after ending rounds
     int end_tick = uptime();
