@@ -5,8 +5,6 @@
 #include "kernel/types.h"
 #include "kernel/stat.h"
 #include "user/user.h"
-#include <stdbool.h>
-#include <stddef.h>
 
 // <<<remove this comment and fill your code here if needed>>>
 
@@ -26,35 +24,38 @@ int main(int argc, char *argv[]) {
     pipe(p);
 
     //Peterson Algorithm
-    volatile bool wantp = false, wantq = false;
+    volatile int wantp = 0, wantq = 0;
     volatile int last = 0;
     int pid = fork();
     if (pid == 0){
         for (int i = 0; i < n; i++) {
-            wantq = true;
+            wantq = 1;
             last = 1;
-            while (wantp && last == 1);
+            while ((wantp == 1) && last == 1);
+            //CS
             unsigned char *in = NULL;
             read(p[0], in, 1);
             *in += 1;
             write(p[1], in, 1);
-            wantq = false;
+
+            wantq = 0;
         }
         exit(0);
     }else {
         char *in;
         in = "0";
         write(p[1], in, 1);
-        wantp = false;
+        wantp = 0;
         for (int i = 1; i < n; i++) {
-            wantp = true;
+            wantp = 1;
             last = 0;
-            while(wantq && last == 0);
+            while((wantq == 1) && last == 0);
+            //CS
             unsigned char *in = NULL;
             read(p[0], in, 1);
             *in += 1;
             write(p[1], in, 1);
-            wantp = false;
+            wantp = 0;
         }
         int *status = NULL;
         wait(status);
