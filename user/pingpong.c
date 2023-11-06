@@ -23,44 +23,26 @@ int main(int argc, char *argv[]) {
     int p[2];
     pipe(p);
 
-    //Peterson Algorithm
-    volatile int wantp = 0, wantq = 0;
-    volatile int last = 0;
     int pid = fork();
-    if (pid == 0){
+    if (pid == 0) {
         for (int i = 0; i < n; i++) {
-            wantq = 1;
-            last = 1;
-            while ((wantp == 1) && last == 1);
-            //CS
-            unsigned char *in = NULL;
-            read(p[0], in, 1);
-            *in += 1;
-            write(p[1], in, 1);
-
-            wantq = 0;
+            unsigned char in = 0;
+            read(p[0], &in, 1);
+            in += 1;
+            write(p[1], &in, 1);
         }
         exit(0);
-    }else {
-        char *in;
-        in = "0";
-        write(p[1], in, 1);
-        wantp = 0;
+    } else {
+        unsigned char in = 0;
+        write(p[1], &in, 1);
         for (int i = 1; i < n; i++) {
-            wantp = 1;
-            last = 0;
-            while((wantq == 1) && last == 0);
-            //CS
-            unsigned char *in = NULL;
-            read(p[0], in, 1);
-            *in += 1;
-            write(p[1], in, 1);
-            wantp = 0;
+            unsigned char in = 0;
+            read(p[0], &in, 1);
+            in += 1;
+            write(p[1], &in, 1);
         }
-        int *status = NULL;
-        wait(status);
+        wait(0);
     }
-
 
     // tick value after ending rounds
     int end_tick = uptime();
