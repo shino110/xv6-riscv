@@ -22,4 +22,3 @@
 #define SYS_close  21
 #define SYS_freemem 22
 #define SYS_getppid 23
-#define SYS_exec_time 24

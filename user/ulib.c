@@ -145,3 +145,20 @@ memcpy(void *dst, const void *src, uint n)
 {
   return memmove(dst, src, n);
 }
+
+int 
+exec_time(const char* fl, char** argv) {
+  int start, end;
+  start = uptime();
+
+  int pid = fork();
+  if (pid == 0){
+    exec(fl, argv);
+  } else {
+    int status;
+    wait(&status);
+  }
+
+  end = uptime();
+  return end - start;
+}

@@ -38,4 +38,3 @@ entry("sleep");
 entry("uptime");
 entry("freemem");
 entry("getppid");
-entry("exec_time");
