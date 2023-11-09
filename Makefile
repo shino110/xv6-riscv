@@ -135,6 +135,8 @@ UPROGS=\
 	$U/_free\
 	$U/_getppidtest\
 	$U/_pingpong\
+	$U/_pingpongt\
+	$U/_pingponga\
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)

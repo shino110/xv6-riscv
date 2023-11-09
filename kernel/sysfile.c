@@ -474,6 +474,29 @@ sys_exec(void)
   return -1;
 }
 
+// returns time sepent in execution
+int 
+sys_exec_time(void) {
+  int start, end;
+
+  acquire(&tickslock);
+  start = ticks;
+  release(&tickslock); // not uptime() cannot be used in this file
+
+  int pid = fork();
+  if (pid == 0){
+    sys_exec();
+  } else {
+    uint64 status = 0;
+    wait(status);
+  }
+
+  acquire(&tickslock);
+  end = ticks;
+  release(&tickslock);
+  return end - start;
+}
+
 uint64
 sys_pipe(void)
 {
