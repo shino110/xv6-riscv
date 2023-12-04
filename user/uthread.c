@@ -29,7 +29,7 @@ void swtch(struct context*, struct context*);
 struct context_node {
     uint64 stack[STACK_DEPTH];
     int context_numth;    //何番目の子スレッドかを返す
-    struct context *cnxt;
+    struct context cnxt;
     struct context_node *next;
 };
 
@@ -38,7 +38,7 @@ struct id_pool {
     struct id_pool *next;
 };
 
-struct context *parent;
+struct context parent;
 struct context_node *head;
 struct context_node *tail;
 struct id_pool *id_head;
@@ -47,15 +47,13 @@ int total_node;
 
 //Level 1
 int make_uthread(void (*fun)()) {
-    struct context *child_cnxt = malloc(sizeof(struct context));
     struct context_node *child = malloc(sizeof(struct context_node));
-    if (child_cnxt == NULL || child == NULL) {
+    if (child == NULL) {
         return -1;
     }
 
-    child->cnxt = child_cnxt;
-    child->cnxt->ra = (uint64)(fun);
-    child->cnxt->sp = (uint64)(child->stack + STACK_DEPTH);
+    child->cnxt.ra = (uint64)*fun;
+    child->cnxt.sp = (uint64)(child->stack + STACK_DEPTH);
     child->next = NULL;
 
     if (total_node > 0) {
@@ -82,12 +80,14 @@ int make_uthread(void (*fun)()) {
         total_node = 1;
         id_head = NULL;
     }
+    printf("made tid: %d\n", child->context_numth);
     return child->context_numth;
 }
 
 void start_uthreads() {
+    printf("starting %d\n", head->context_numth);
     while (head!= NULL) {
-        swtch(parent, head->cnxt);
+        swtch(&parent, &(head->cnxt));
     }
 }
 
@@ -98,7 +98,7 @@ void yield() {
     head = tmp->next;
     tail->next = tmp;
     tail = tmp;
-    swtch(tmp->cnxt, head->cnxt);
+    swtch(&(tmp->cnxt), &(head->cnxt));
 }
 
 int mytid() {
@@ -141,7 +141,6 @@ void uthread_exit() {
             id_tail = id_child;
         }
     }
-    free(tmp->cnxt);
     free(tmp);
 }
 
