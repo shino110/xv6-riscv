@@ -1,6 +1,5 @@
 #include "kernel/types.h"
 #include "user/user.h"
-#include <stddef.h>
 #define STACK_DEPTH 512
 
 // Saved registers for kernel context switches. (from kernel/proc.h)
@@ -44,27 +43,25 @@ struct context_node *tail;
 struct id_pool *id_head;
 struct id_pool *id_tail;
 int total_node;
+int total_pool;
 
 //Level 1
 int make_uthread(void (*fun)()) {
     struct context_node *child = malloc(sizeof(struct context_node));
-    if (child == NULL) {
-        return -1;
-    }
 
     child->cnxt.ra = (uint64)*fun;
     child->cnxt.sp = (uint64)(child->stack + STACK_DEPTH);
-    child->next = NULL;
 
     if (total_node > 0) {
         //decide numbering of thread
-        if (id_head != NULL) {
+        if (total_pool > 0) {
             struct id_pool *tmp;
-            
             child->context_numth = id_head->num;
+
             tmp = id_head;
             id_head = id_head->next; // if next == NULL, id_head = NULL
             free(tmp);
+            total_pool -= 1;
         } else {
             child->context_numth = total_node;
         }
@@ -78,7 +75,7 @@ int make_uthread(void (*fun)()) {
         tail = child;
         child->context_numth = 0;
         total_node = 1;
-        id_head = NULL;
+        total_pool = 0;
     }
     printf("made tid: %d\n", child->context_numth);
     return child->context_numth;
@@ -86,7 +83,7 @@ int make_uthread(void (*fun)()) {
 
 void start_uthreads() {
     printf("starting %d\n", head->context_numth);
-    while (head!= NULL) {
+    while (total_node > 0) {
         swtch(&parent, &(head->cnxt));
     }
 }
@@ -109,9 +106,6 @@ int mytid() {
 void uthread_exit() {
     struct context_node *tmp = head;
     struct id_pool *id_child = malloc(sizeof(struct id_pool));
-    if (id_child == NULL) {
-        return;
-    }
 
     head = head->next; //if next == NULL, head = NULL
     total_node -= 1;
@@ -127,18 +121,18 @@ void uthread_exit() {
         }
         free(tmp1);
         free(id_child);
-        id_head = NULL;
-        id_tail = NULL;
+        total_pool = 0;
     } else {
         //put current id in id_pool
         id_child->num = tmp->context_numth;
-        id_child->next = NULL;
-        if(id_head == NULL) {
-            id_head = id_child;
-            id_tail = id_child;
-        } else {
+        if(total_pool > 0) {
             id_tail->next = id_child;
             id_tail = id_child;
+            total_pool += 1;
+        } else {
+            id_head = id_child;
+            id_tail = id_child;
+            total_pool = 1;
         }
     }
     free(tmp);
