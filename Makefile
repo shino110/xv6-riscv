@@ -111,7 +111,7 @@ $U/_swtest: $U/swtest.o $(ULIB) $K/swtch.o
 	$(OBJDUMP) -S $@ > $*.asm
 	$(OBJDUMP) -t $@ | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $*.sym
 
-$U/_uttest1: $U/uttest1.o $(ULIB) $K/swtch.o
+$U/_uttest1: $U/uttest1.o $U/uthread.o $(ULIB) $K/swtch.o
 	$(LD) $(LDFLAGS) -N -e main -Ttext 0 -o $@ $^
 	$(OBJDUMP) -S $@ > $*.asm
 	$(OBJDUMP) -t $@ | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $*.sym
@@ -143,7 +143,6 @@ UPROGS=\
 	$U/_wc\
 	$U/_zombie\
 	$U/_swtest\
-	$U/_uthread\
 	$U/_uttest1\
 
 fs.img: mkfs/mkfs README $(UPROGS)
