@@ -143,6 +143,7 @@ UPROGS=\
 	$U/_wc\
 	$U/_zombie\
 	$U/_swtest\
+	$U/_uthread\
 	$U/_uttest1\
 
 fs.img: mkfs/mkfs README $(UPROGS)

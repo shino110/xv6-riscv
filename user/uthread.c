@@ -1,28 +1,32 @@
+#include "kernel/types.h"
 #include "user/uthread.h"
 #include "user/user.h"
-#include "kernel/defs.h"
-#include "kernel/param.h"
-#include "kernel/proc.h"
-#include "kernel/spinlock.h"
-#include "kernel/types.h"
-#include "kernel/riscv.h"
+#include <stddef.h>
 
 //Level 1
 int make_uthread(void (*fun)()) {
-    struct context parent = myproc().context;
-    struct context_node *child = malloc(struct context_node);
+    struct context *child_cnxt = malloc(sizeof(struct context));
+    struct context_node *child = malloc(sizeof(struct context_node));
+    if (child_cnxt == NULL || child == NULL) {
+        return -1;
+    }
 
-    child->cnxt.ra = (uint64)fun;
-    child->cnxt.sp = (uint64)(child->stack + STACK_DEPTH);
+    child->cnxt = child_cnxt;
+    child->cnxt->ra = (uint64)(fun);
+    child->cnxt->sp = (uint64)(child->stack + STACK_DEPTH);
     child->next = NULL;
 
     if (total_node > 0) {
         //decide numbering of thread
         if (id_head != NULL) {
+            struct id_pool *tmp;
+            
             child->context_numth = id_head->num;
+            tmp = id_head;
             id_head = id_head->next; // if next == NULL, id_head = NULL
+            free(tmp);
         } else {
-            child->context_numth = total_node
+            child->context_numth = total_node;
         }
         total_node += 1;
 
@@ -36,11 +40,12 @@ int make_uthread(void (*fun)()) {
         total_node = 1;
         id_head = NULL;
     }
+    return child->context_numth;
 }
 
 void start_uthreads() {
     while (head!= NULL) {
-        swtch(&parent, &(head->cnxt));
+        swtch(parent, head->cnxt);
     }
 }
 
@@ -51,7 +56,7 @@ void yield() {
     head = tmp->next;
     tail->next = tmp;
     tail = tmp;
-    swtch(&(tmp->cnxt), &(head->cnxt))
+    swtch(tmp->cnxt, head->cnxt);
 }
 
 int mytid() {
@@ -61,7 +66,10 @@ int mytid() {
 //Level 2
 void uthread_exit() {
     struct context_node *tmp = head;
-    struct id_pool *id_child = malloc(sizeof(id_pool));
+    struct id_pool *id_child = malloc(sizeof(struct id_pool));
+    if (id_child == NULL) {
+        return;
+    }
 
     head = head->next; //if next == NULL, head = NULL
     total_node -= 1;
@@ -91,6 +99,7 @@ void uthread_exit() {
             id_tail = id_child;
         }
     }
+    free(tmp->cnxt);
     free(tmp);
 }
 
