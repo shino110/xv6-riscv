@@ -38,12 +38,37 @@ struct id_pool {
 };
 
 struct context parent;
+struct context tmp;
 struct context_node *head;
 struct context_node *tail;
 struct id_pool *id_head;
 struct id_pool *id_tail;
 int total_node;
 int total_pool;
+
+// help function
+void start_nextthread(int from_parent, int yield) {
+    struct context trash;
+    if (total_node == 0) {
+        swtch(&trash, &parent);
+    }
+    if (from_parent > 0) {
+        swtch(&parent, &(head->cnxt));
+    } else if (yield > 0){
+        //current context goes to last on queue
+        if (total_node > 1) {
+            struct context_node *tmp = head;
+            head = tmp->next;
+            tail->next = tmp;
+            tail = tmp;
+            swtch(&(tmp->cnxt), &(head->cnxt));
+        } else {
+            swtch(&parent ,&(head->cnxt))
+        }
+    } else {
+        swtch(&trash, &(head->cnxt));
+    }
+}
 
 //Level 1
 int make_uthread(void (*fun)()) {
@@ -52,7 +77,7 @@ int make_uthread(void (*fun)()) {
     child->cnxt.ra = (uint64)*fun;
     child->cnxt.sp = (uint64)(child->stack + STACK_DEPTH);
 
-    if (total_node > 0) {
+    if (total_node > 0) {//child arleady exists
         //decide numbering of thread
         if (total_pool > 0) {
             struct id_pool *tmp;
@@ -70,32 +95,24 @@ int make_uthread(void (*fun)()) {
         //connect in unidirect list
         tail->next = child;
         tail = child;
-    } else {
+    } else { //first child thread to run
         head = child;
         tail = child;
         child->context_numth = 0;
         total_node = 1;
         total_pool = 0;
     }
-    printf("made tid: %d\n", child->context_numth);
     return child->context_numth;
 }
 
 void start_uthreads() {
-    printf("starting %d\n", head->context_numth);
     while (total_node > 0) {
-        swtch(&parent, &(head->cnxt));
+        start_nextthread(1, 0);
     }
 }
 
 void yield() {
-    struct context_node *tmp = head;
-
-    //current context goes to last on queue
-    head = tmp->next;
-    tail->next = tmp;
-    tail = tmp;
-    swtch(&(tmp->cnxt), &(head->cnxt));
+    start_nextthread(0, 1);
 }
 
 int mytid() {
@@ -107,19 +124,27 @@ void uthread_exit() {
     struct context_node *tmp = head;
     struct id_pool *id_child = malloc(sizeof(struct id_pool));
 
-    head = head->next; //if next == NULL, head = NULL
     total_node -= 1;
+    if (total_node > 0) {
+        head = head->next; //if next == NULL, head = NULL
+    } 
 
+    //deal with new available tid
     if (total_node == 0) {
+        // all child is run
         // delete all id_pool
-        struct id_pool *tmp1 = id_head;
-        struct id_pool *tmp2 = id_head->next;
-        while (id_tail->num != tmp1->num) {
+        if (total_pool > 1) {
+            struct id_pool *tmp1 = id_head;
+            struct id_pool *tmp2 = id_head->next;
+            while (id_tail->num != tmp1->num) {
+                free(tmp1);
+                tmp1 = tmp2;
+                tmp2 = tmp2->next;
+            }
             free(tmp1);
-            tmp1 = tmp2;
-            tmp2 = tmp2->next;
+        } else if (total_pool == 1) {
+            free(id_head);
         }
-        free(tmp1);
         free(id_child);
         total_pool = 0;
     } else {
@@ -136,6 +161,7 @@ void uthread_exit() {
         }
     }
     free(tmp);
+    start_nextthread(0, 0);
 }
 
 //Level 3
