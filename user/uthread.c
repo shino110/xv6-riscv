@@ -28,6 +28,8 @@ void swtch(struct context*, struct context*);
 struct context_node {
     uint64 stack[STACK_DEPTH];
     int context_numth;    //何番目の子スレッドかを返す
+    int waiting;          //waitingなどの状態を表す。
+    void *waiting_for;
     struct context cnxt;
     struct context_node *next;
 };
@@ -47,26 +49,55 @@ int total_node;
 int total_pool;
 
 // help function
+void head_goes2_tail(void) {
+    struct context_node *tmp = head;
+    if (total_node > 1) {
+        head = tmp->next;
+        tail->next = tmp;
+        tail = tmp;
+    }
+}
+
+int search_nonwaiting_head() {
+    for (int i = 0; i < total_node; i++) {
+        if (head->waiting < 1) {
+            return 1;
+        }
+        head_goes2_tail();
+    }
+    //all child threads is waiting
+    return -1;
+}
+
 void start_nextthread(int from_parent, int yield) {
     struct context trash;
     if (total_node == 0) {
         swtch(&trash, &parent);
     }
     if (from_parent > 0) {
-        swtch(&parent, &(head->cnxt));
+        if (search_nonwaiting_head()) swtch(&parent, &(head->cnxt));
+        //if all child threads is waiting do nothing
     } else if (yield > 0){
-        //current context goes to last on queue
         if (total_node > 1) {
             struct context_node *tmp = head;
-            head = tmp->next;
-            tail->next = tmp;
-            tail = tmp;
-            swtch(&(tmp->cnxt), &(head->cnxt));
+            head_goes2_tail(); //current context goes to last on queue
+            search_nonwaiting_head();
+            if (tmp->context_numth == head->context_numth) {
+                // other child threads are waiting so start parent
+                swtch(&(head->cnxt), &parent);
+            } else {
+                swtch(&(tmp->cnxt), &(head->cnxt)); 
+            }
         } else {
-            swtch(&parent ,&(head->cnxt))
+            //no other child thread to yield
+            swtch(&(head->cnxt), &parent);
         }
-    } else {
-        swtch(&trash, &(head->cnxt));
+    } else { //from uthread_exit()
+        if (search_nonwaiting_head()) { 
+            swtch(&trash, &(head->cnxt));
+        } else { // if all child threads is waiting go back to parent thread
+            swtch(&trash, &parent);
+        }
     }
 }
 
@@ -76,6 +107,7 @@ int make_uthread(void (*fun)()) {
 
     child->cnxt.ra = (uint64)*fun;
     child->cnxt.sp = (uint64)(child->stack + STACK_DEPTH);
+    child->waiting = 0;
 
     if (total_node > 0) {//child arleady exists
         //decide numbering of thread
@@ -106,9 +138,7 @@ int make_uthread(void (*fun)()) {
 }
 
 void start_uthreads() {
-    while (total_node > 0) {
-        start_nextthread(1, 0);
-    }
+    start_nextthread(1, 0);
 }
 
 void yield() {
@@ -165,6 +195,35 @@ void uthread_exit() {
 }
 
 //Level 3
-void uthread_wait(void *a);
-void uthread_notify(int tid, void *a);
-void uthread_notify_all(void *a);
+void uthread_wait(void *a) {
+    head->waiting = 1;
+    head->waiting_for = a;
+    start_nextthread(0, 1);
+}
+
+void uthread_notify(int tid, void *a) {
+    struct context_node *tmp = head;
+    for (int i = 0; i < total_node; i++) {
+        if (tmp->context_numth == tid) {
+            if (tmp->waiting > 0) { //tmp->waiting_for may not be registered
+                if (tmp->waiting_for == a) {
+                    tmp->waiting = 0;
+                }
+            }
+            break;
+        }
+        tmp = tmp->next;
+    }
+}
+
+void uthread_notify_all(void *a) {
+    struct context_node *tmp = head;
+    for (int i = 0; i < total_node; i++) {
+        if (tmp->waiting > 0) { //tmp->waiting_for may not be registered
+            if (tmp->waiting_for == a) {
+                tmp->waiting = 0;
+            }
+        }
+        tmp = tmp->next;
+    }
+}

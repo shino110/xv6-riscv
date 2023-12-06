@@ -27,7 +27,7 @@ void baz_sub(int *cp) {
 }
 void baz() {
     int c = 0;
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 4; i++) {
         baz_sub(&c);
         baz_sub(&c);
     }
@@ -39,6 +39,8 @@ int main() {
     start_uthreads();
     make_uthread(bar);
     make_uthread(baz);
+    start_uthreads();
+    make_uthread(foo);
     start_uthreads();
     exit(0);
 }
