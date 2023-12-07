@@ -115,9 +115,9 @@ int make_uthread(void (*fun)()) {
             struct id_pool *tmp;
             child->context_numth = id_head->num;
 
-            tmp = id_head;
-            id_head = id_head->next; // if next == NULL, id_head = NULL
-            free(tmp);
+            tmp = id_head->next; // if next == NULL, id_head = NULL
+            free(id_head);
+            id_head = tmp;
             total_pool -= 1;
         } else {
             child->context_numth = total_node;
@@ -151,27 +151,30 @@ int mytid() {
 
 //Level 2
 void uthread_exit() {
-    struct context_node *tmp = head;
+    struct context_node *tmp;
     struct id_pool *id_child = malloc(sizeof(struct id_pool));
 
     total_node -= 1;
     if (total_node > 0) {
-        head = head->next; //if next == NULL, head = NULL
-    } 
+        tmp = head->next; //if next == NULL, head = NULL
+    } else {
+        tmp = head; // not going to be used 
+    }
 
     //deal with new available tid
     if (total_node == 0) {
         // all child is run
         // delete all id_pool
         if (total_pool > 1) {
-            struct id_pool *tmp1 = id_head;
-            struct id_pool *tmp2 = id_head->next;
-            while (id_tail->num != tmp1->num) {
-                free(tmp1);
-                tmp1 = tmp2;
-                tmp2 = tmp2->next;
+            struct id_pool *tmp1 = id_head->next;
+            free(id_head);
+            id_head = tmp1;
+            while (id_tail->num != id_head->num) {
+                tmp1 = id_head->next;
+                free(id_head);
+                id_head = tmp1;
             }
-            free(tmp1);
+            free(id_head);
         } else if (total_pool == 1) {
             free(id_head);
         }
@@ -190,7 +193,10 @@ void uthread_exit() {
             total_pool = 1;
         }
     }
-    free(tmp);
+    free(head);
+    if (total_node > 0) {
+        head = tmp; //if next == NULL, head = NULL
+    }
     start_nextthread(0, 0);
 }
 
