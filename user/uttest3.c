@@ -14,32 +14,33 @@ void foo() {
         uthread_wait(&c);
     }
 }
-void bar() {
-    for (int i = 0; i < 3; i++) {
-        printf("bar␣(tid=%d):␣%d\n", mytid(), c);
-        yield();
-        c += 2;
+void foo2() {
+    for (;;) {
+        printf("foo2␣(tid=%d):␣%d\n", mytid(), c);
+        c += 1;
+        uthread_wait(&c);
     }
+}
+void bar() {
+    printf("bar␣(tid=%d):␣%d\n", mytid(), c);
+    c += 2;
     uthread_notify(foo_tid, &c);
     uthread_exit();
 }
-void baz_sub(int *cp) {
-    printf("baz␣(tid=%d):␣%d\n", mytid(), *cp);
-    yield();
-    *cp += 3;
-}
-void baz() {
-    for (int i = 0; i < 4; i++) {
-        baz_sub(&c);
-        baz_sub(&c);
-    }
+void bar2() {
+    printf("bar2␣(tid=%d):␣%d\n", mytid(), c);
+    c += 2;
+    uthread_notify_all(&c);
     uthread_exit();
 }
 
 int main() {
     make_uthread(foo);
     make_uthread(bar);
-    make_uthread(baz);
+    start_uthreads();
+    c = 0;
+    make_uthread(foo2);
+    make_uthread(bar2);
     start_uthreads();
     exit(0);
 }

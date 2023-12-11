@@ -81,8 +81,8 @@ void start_nextthread(int from_parent, int yield) {
         if (total_node > 1) {
             struct context_node *tmp = head;
             head_goes2_tail(); //current context goes to last on queue
-            search_nonwaiting_head();
-            if (tmp->context_numth == head->context_numth) {
+            int runnable = search_nonwaiting_head();
+            if (runnable < 0 || tmp->context_numth == head->context_numth) {
                 // other child threads are waiting so start parent
                 swtch(&(head->cnxt), &parent);
             } else {
@@ -182,7 +182,7 @@ void uthread_exit() {
         total_pool = 0;
     } else {
         //put current id in id_pool
-        id_child->num = tmp->context_numth;
+        id_child->num = head->context_numth;
         if(total_pool > 0) {
             id_tail->next = id_child;
             id_tail = id_child;
